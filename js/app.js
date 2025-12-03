@@ -1,6 +1,6 @@
 /**
  * js/app.js
- * Point d'entrée principal (Version Finale)
+ * Point d'entrée principal (Version Debug)
  */
 import { Config } from './config.js';
 import { Auth } from './auth.js';
@@ -8,25 +8,30 @@ import { Drive } from './drive.js';
 import { Editor } from './editor.js';
 
 // --- DOM ELEMENTS ---
-const btnLogin = document.getElementById('btn-login');
-const btnLogout = document.getElementById('btn-logout');
-const btnNewProject = document.getElementById('btn-new-project');
-const btnCloseEditor = document.getElementById('btn-close-editor');
-const btnSave = document.getElementById('btn-save'); // Nouveau bouton
-const viewDashboard = document.getElementById('view-dashboard');
-const viewEditor = document.getElementById('view-editor');
-const emptyState = document.getElementById('empty-state');
-const projectsGrid = document.getElementById('projects-grid');
+// On utilise des getters ou on attend le DOMContentLoaded pour être sûr
+let btnLogin, btnLogout, btnNewProject, btnCloseEditor, btnSave;
+let viewDashboard, viewEditor, emptyState, projectsGrid;
 
-// État local pour savoir quel fichier on édite (null = nouveau fichier)
+// État local
 let currentFileId = null;
 
 // --- INIT FLOW ---
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // Init Editor logic
-    Editor.init();
+    console.log("DOM chargé, initialisation de l'application...");
 
+    // 1. Récupération sûre des éléments DOM
+    btnLogin = document.getElementById('btn-login');
+    btnLogout = document.getElementById('btn-logout');
+    btnNewProject = document.getElementById('btn-new-project');
+    btnCloseEditor = document.getElementById('btn-close-editor');
+    btnSave = document.getElementById('btn-save');
+    viewDashboard = document.getElementById('view-dashboard');
+    viewEditor = document.getElementById('view-editor');
+    emptyState = document.getElementById('empty-state');
+    projectsGrid = document.getElementById('projects-grid');
+
+    // 2. Initialiser les modules
+    Editor.init();
     Config.initUI(() => window.location.reload());
 
     if (!Config.hasConfig()) {
@@ -35,13 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
         Auth.init((success) => {
             if (success) {
                 btnLogin.disabled = false;
+                console.log("Auth initialisé.");
             }
         });
     }
 
     // --- EVENT LISTENERS ---
 
-    // 1. Auth
+    // Auth
     btnLogin.addEventListener('click', () => {
         Auth.signIn(() => {
             updateAuthUI(true);
@@ -57,37 +63,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 2. Navigation & Éditeur
+    // Navigation
     btnNewProject.addEventListener('click', () => {
-        currentFileId = null; // On part de zéro
-        Editor.setContent("# Nouveau Projet FSA\n\nCollez votre synthèse ici...");
+        currentFileId = null;
+        Editor.setContent("# Nouveau Projet FSA\n\nCommencez à écrire...");
         showEditor(true);
     });
 
     btnCloseEditor.addEventListener('click', () => {
         showEditor(false);
-        refreshProjects(); // Rafraichir la liste au cas où on a sauvegardé
+        if (Auth.isReady()) refreshProjects();
     });
 
-    // 3. Sauvegarde
+    // Sauvegarde
     btnSave.addEventListener('click', async () => {
+        console.log("Clic sur Sauvegarder...");
         const content = Editor.getContent();
-        const fileName = Editor.extractTitle(); // On devine le nom via le titre Markdown
+        const fileName = Editor.extractTitle();
 
-        // Petit feedback visuel
+        // UI Feedback
         const originalText = btnSave.innerHTML;
-        btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sauvegarde...';
+        btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ...';
         btnSave.disabled = true;
 
         try {
+            console.log("Tentative d'envoi vers Drive...");
             const result = await Drive.saveFile(currentFileId, fileName, content);
-            // Si c'était une création, on récupère l'ID pour les prochaines sauvegardes
+            console.log("Sauvegarde réussie :", result);
+            
             if (!currentFileId && result.id) {
                 currentFileId = result.id;
             }
-            alert("Projet sauvegardé avec succès !");
+            alert("✅ Projet sauvegardé sur le Drive !");
         } catch (err) {
-            alert("Erreur lors de la sauvegarde. Vérifiez la console.");
+            console.error("Erreur de sauvegarde :", err);
+            alert("❌ Erreur lors de la sauvegarde.\n\nVérifiez la console (F12) pour les détails.");
         } finally {
             btnSave.innerHTML = originalText;
             btnSave.disabled = false;
@@ -95,21 +105,23 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// --- LOGIC FUNCTIONS ---
+// --- FONCTIONS UTILITAIRES ---
 
 async function refreshProjects() {
+    if (!projectsGrid) return;
     projectsGrid.innerHTML = '<div class="col-span-full text-center py-10"><i class="fa-solid fa-circle-notch fa-spin text-indigo-600 text-3xl"></i></div>';
     
     try {
         const files = await Drive.listProjects();
         renderProjects(files);
     } catch (err) {
-        projectsGrid.innerHTML = '<p class="text-red-500">Erreur de chargement.</p>';
+        console.error("Erreur listing :", err);
+        projectsGrid.innerHTML = '<p class="text-red-500 text-center col-span-full">Erreur de chargement des projets.</p>';
     }
 }
 
 function renderProjects(files) {
-    projectsGrid.innerHTML = ''; // Clear loader
+    projectsGrid.innerHTML = '';
 
     if (!files || files.length === 0) {
         emptyState.classList.remove('hidden');
@@ -122,9 +134,8 @@ function renderProjects(files) {
         const card = document.createElement('div');
         card.className = "bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-indigo-300 cursor-pointer transition group flex flex-col h-48";
         
-        // On essaye de rendre le nom joli (enlever .md)
         const displayName = file.name.replace('.md', '');
-        const date = new Date(file.modifiedTime).toLocaleDateString('fr-FR');
+        const date = file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString('fr-FR') : 'Date inconnue';
 
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
@@ -133,18 +144,16 @@ function renderProjects(files) {
             </div>
             <h3 class="font-bold text-lg mb-2 text-slate-800 group-hover:text-indigo-600 truncate">${displayName}</h3>
             <div class="flex-1"></div>
-            <div class="mt-4 text-xs text-slate-400 pt-3 border-t border-slate-50 flex justify-between items-center">
-                <span>Modifié le ${date}</span>
+            <div class="mt-4 text-xs text-slate-400 pt-3 border-t border-slate-50">
+                Modifié le ${date}
             </div>
         `;
 
-        // Clic sur la carte -> Ouvrir le fichier
         card.addEventListener('click', async () => {
-            // Feedback chargement
             card.style.opacity = '0.5';
             try {
                 const content = await Drive.getFileContent(file.id);
-                currentFileId = file.id; // On stocke l'ID en cours
+                currentFileId = file.id;
                 Editor.setContent(content);
                 showEditor(true);
             } catch (err) {
@@ -160,7 +169,6 @@ function renderProjects(files) {
 
 function updateAuthUI(isLoggedIn) {
     if (isLoggedIn) {
-        btnLogin.parentElement.classList.add('hidden');
         btnLogin.classList.add('hidden');
         btnLogout.classList.remove('hidden');
         btnNewProject.classList.remove('hidden');
