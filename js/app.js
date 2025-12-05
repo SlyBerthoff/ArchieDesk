@@ -80,7 +80,13 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Clic sur Sauvegarder...");
         const content = Editor.getContent();
         const fileName = Editor.extractTitle();
+        try {
+        // On récupère le folder ID cible
+        const config = Config.get();
+        const targetFolderId = config ? config.folderId : null;
 
+        // On passe targetFolderId à saveFile (4ème argument)
+        const result = await Drive.saveFile(currentFileId, fileName, content, targetFolderId);
         // UI Feedback
         const originalText = btnSave.innerHTML;
         btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ...';
@@ -108,6 +114,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // --- FONCTIONS UTILITAIRES ---
 
 async function refreshProjects() {
+    try {
+        // On récupère la config pour savoir où chercher
+        const config = Config.get();
+        const folderId = config ? config.folderId : null;
+
+        // On passe folderId à listProjects
+        const files = await Drive.listProjects(folderId); 
+        renderProjects(files);
     if (!projectsGrid) return;
     projectsGrid.innerHTML = '<div class="col-span-full text-center py-10"><i class="fa-solid fa-circle-notch fa-spin text-indigo-600 text-3xl"></i></div>';
     

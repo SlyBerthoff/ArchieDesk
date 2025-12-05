@@ -1,85 +1,86 @@
 /**
  * js/config.js
- * Gestion de la configuration locale (API Keys)
+ * Gestion Config + Folder Picker Wiring
  */
+import { FolderPicker } from './picker.js'; // Import du nouveau module
 
 const STORAGE_KEY = 'archiedesk_config_v1';
-
-// Sélection des éléments DOM (Modale)
 const modal = document.getElementById('config-modal');
 const form = document.getElementById('config-form');
 const inputApiKey = document.getElementById('input-api-key');
 const inputClientId = document.getElementById('input-client-id');
+const inputFolderName = document.getElementById('input-folder-name'); // Nouveau
+const inputFolderId = document.getElementById('input-folder-id');     // Nouveau
+const btnBrowse = document.getElementById('btn-browse-folder');       // Nouveau
 const btnCancel = document.getElementById('btn-cancel-config');
 const btnConfigTrigger = document.getElementById('btn-config');
 
 export const Config = {
-    // Récupérer les clés stockées
     get() {
         const data = localStorage.getItem(STORAGE_KEY);
         return data ? JSON.parse(data) : null;
     },
 
-    // Sauvegarder les clés
-    save(apiKey, clientId) {
+    save(apiKey, clientId, folderId, folderName) {
         if (!apiKey || !clientId) return false;
-        const config = { apiKey, clientId };
+        const config = { apiKey, clientId, folderId, folderName };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
         return config;
     },
 
-    // Vérifier si la config existe
     hasConfig() {
         return !!this.get();
     },
 
-    // Afficher la modale
     showModal(canCancel = false) {
-        // Pré-remplir si existant
         const current = this.get();
         if (current) {
             inputApiKey.value = current.apiKey;
             inputClientId.value = current.clientId;
-        }
-
-        if (canCancel) {
-            btnCancel.classList.remove('hidden');
-        } else {
-            btnCancel.classList.add('hidden');
+            inputFolderId.value = current.folderId || '';
+            inputFolderName.value = current.folderName || 'Racine';
         }
         
+        btnCancel.classList.toggle('hidden', !canCancel);
         modal.classList.remove('hidden');
     },
 
-    // Cacher la modale
     hideModal() {
         modal.classList.add('hidden');
     },
 
-    // Initialisation des écouteurs d'événements liés à la config
     initUI(onSaveCallback) {
-        // Soumission du formulaire
+        // Init Picker
+        FolderPicker.init();
+
+        // Click Browse
+        btnBrowse.addEventListener('click', () => {
+            // Vérif : faut être connecté pour browse
+            if (typeof gapi === 'undefined' || !gapi.client || !gapi.client.getToken()) {
+                alert("Veuillez d'abord sauvegarder les clés API et vous connecter à Google pour parcourir les dossiers.");
+                return;
+            }
+            
+            FolderPicker.open((selection) => {
+                inputFolderId.value = selection.id;
+                inputFolderName.value = selection.name;
+            });
+        });
+
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const apiKey = inputApiKey.value.trim();
             const clientId = inputClientId.value.trim();
+            const folderId = inputFolderId.value.trim();
+            const folderName = inputFolderName.value.trim();
 
-            if (this.save(apiKey, clientId)) {
+            if (this.save(apiKey, clientId, folderId, folderName)) {
                 this.hideModal();
-                if (onSaveCallback) onSaveCallback(); // Recharger l'app
-                // Petit feedback visuel ou reload
-                window.location.reload(); 
+                if (onSaveCallback) onSaveCallback();
             }
         });
 
-        // Bouton roue dentée (Navbar)
-        btnConfigTrigger.addEventListener('click', () => {
-            this.showModal(true);
-        });
-
-        // Bouton annuler
-        btnCancel.addEventListener('click', () => {
-            this.hideModal();
-        });
+        btnConfigTrigger.addEventListener('click', () => this.showModal(true));
+        btnCancel.addEventListener('click', () => this.hideModal());
     }
 };

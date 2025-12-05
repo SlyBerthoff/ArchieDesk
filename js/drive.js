@@ -1,25 +1,47 @@
 /**
  * js/drive.js
- * Gestion du stockage Google Drive (CRUD) - Version Multipart (Fix Untitled)
+ * Gestion du stockage Google Drive (CRUD + Navigation)
  */
-
-const QUERY_FILES = "mimeType = 'text/markdown' and trashed = false";
 
 export const Drive = {
     /**
-     * Liste les projets
+     * Liste les projets (FSA)
+     * Si un folderId est configuré, on cherche dedans. Sinon à la racine.
      */
-    async listProjects() {
+    async listProjects(folderId = null) {
+        // Si folderId est fourni, on filtre par 'parent'. Sinon pas de filtre parent.
+        const parentQuery = folderId ? ` and '${folderId}' in parents` : "";
+        const query = `mimeType = 'text/markdown' and trashed = false${parentQuery}`;
+
         try {
             const response = await gapi.client.drive.files.list({
-                'pageSize': 20,
-                'fields': "files(id, name, modifiedTime, size)",
-                'q': QUERY_FILES,
+                'pageSize': 50,
+                'fields': "files(id, name, modifiedTime)",
+                'q': query,
                 'orderBy': 'modifiedTime desc'
             });
             return response.result.files || [];
         } catch (err) {
             console.error("Erreur Drive listProjects:", err);
+            throw err;
+        }
+    },
+
+    /**
+     * Liste les sous-dossiers d'un parent donné (pour le sélecteur)
+     */
+    async listFolders(parentId = 'root') {
+        const query = `mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`;
+        try {
+            const response = await gapi.client.drive.files.list({
+                'pageSize': 50,
+                'fields': "files(id, name)",
+                'q': query,
+                'orderBy': 'name'
+            });
+            return response.result.files || [];
+        } catch (err) {
+            console.error("Erreur listFolders:", err);
             throw err;
         }
     },
@@ -35,31 +57,29 @@ export const Drive = {
             });
             return response.body;
         } catch (err) {
-            console.error("Erreur Drive getFileContent:", err);
+            console.error("Erreur getFileContent:", err);
             throw err;
         }
     },
 
     /**
-     * Sauvegarde robuste (Multipart) pour garantir le Titre et le Contenu
+     * Sauvegarde (Multipart) avec gestion du dossier parent
      */
-    async saveFile(fileId, title, content) {
-        // 1. Préparation des métadonnées (Nom + Type)
+    async saveFile(fileId, title, content, parentFolderId = null) {
         const metadata = {
             'name': title || 'Nouveau FSA.md',
             'mimeType': 'text/markdown'
         };
 
-        // 2. Construction du corps "Multipart" (Le format strict attendu par Google)
+        // Si c'est une création (pas de fileId) ET qu'on a un dossier cible
+        if (!fileId && parentFolderId) {
+            metadata.parents = [parentFolderId];
+        }
+
         const boundary = '-------314159265358979323846';
         const delimiter = "\r\n--" + boundary + "\r\n";
         const close_delim = "\r\n--" + boundary + "--";
 
-        // Note: On encode le contenu en UTF-8 pour supporter les accents
-        // (JavaScript gère les strings en UTF-16, mais le réseau préfère l'UTF-8 propre)
-        // Pour du texte simple comme Markdown, la string JS passe généralement bien via gapi,
-        // mais le formatage ci-dessous est le standard.
-        
         const multipartRequestBody =
             delimiter +
             'Content-Type: application/json\r\n\r\n' +
@@ -69,12 +89,10 @@ export const Drive = {
             content +
             close_delim;
 
-        // 3. Choix de la méthode (PATCH = Update, POST = Create)
         const method = fileId ? 'PATCH' : 'POST';
         const path = '/upload/drive/v3/files' + (fileId ? '/' + fileId : '');
 
         try {
-            // Appel direct via gapi.client.request pour contrôler le header
             const response = await gapi.client.request({
                 'path': path,
                 'method': method,
@@ -87,7 +105,7 @@ export const Drive = {
 
             return response.result;
         } catch (err) {
-            console.error("Erreur Drive saveFile (Multipart):", err);
+            console.error("Erreur saveFile:", err);
             throw err;
         }
     }
