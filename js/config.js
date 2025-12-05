@@ -2,16 +2,16 @@
  * js/config.js
  * Gestion Config + Folder Picker Wiring
  */
-import { FolderPicker } from './picker.js'; // Import du nouveau module
+import { FolderPicker } from './picker.js';
 
 const STORAGE_KEY = 'archiedesk_config_v1';
 const modal = document.getElementById('config-modal');
 const form = document.getElementById('config-form');
 const inputApiKey = document.getElementById('input-api-key');
 const inputClientId = document.getElementById('input-client-id');
-const inputFolderName = document.getElementById('input-folder-name'); // Nouveau
-const inputFolderId = document.getElementById('input-folder-id');     // Nouveau
-const btnBrowse = document.getElementById('btn-browse-folder');       // Nouveau
+const inputFolderName = document.getElementById('input-folder-name'); 
+const inputFolderId = document.getElementById('input-folder-id');     
+const btnBrowse = document.getElementById('btn-browse-folder');       
 const btnCancel = document.getElementById('btn-cancel-config');
 const btnConfigTrigger = document.getElementById('btn-config');
 
@@ -38,7 +38,7 @@ export const Config = {
             inputApiKey.value = current.apiKey;
             inputClientId.value = current.clientId;
             inputFolderId.value = current.folderId || '';
-            inputFolderName.value = current.folderName || 'Racine';
+            inputFolderName.value = current.folderName || 'Racine (Mon Drive)';
         }
         
         btnCancel.classList.toggle('hidden', !canCancel);
@@ -50,14 +50,14 @@ export const Config = {
     },
 
     initUI(onSaveCallback) {
-        // Init Picker
+        // Init Picker Module
         FolderPicker.init();
 
-        // Click Browse
+        // Clic sur "Parcourir"
         btnBrowse.addEventListener('click', () => {
-            // Vérif : faut être connecté pour browse
+            // Sécurité : on doit être connecté pour lister les dossiers
             if (typeof gapi === 'undefined' || !gapi.client || !gapi.client.getToken()) {
-                alert("Veuillez d'abord sauvegarder les clés API et vous connecter à Google pour parcourir les dossiers.");
+                alert("Veuillez d'abord vous connecter à Google (Connexion Drive) pour parcourir vos dossiers.");
                 return;
             }
             
