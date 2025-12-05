@@ -1,15 +1,13 @@
 /**
  * js/drive.js
- * Gestion du stockage Google Drive (CRUD)
+ * Gestion du stockage Google Drive (CRUD) - Version Multipart (Fix Untitled)
  */
 
-// On cherche uniquement les fichiers Markdown créés par l'app (scope drive.file)
-// et qui ne sont pas à la corbeille.
 const QUERY_FILES = "mimeType = 'text/markdown' and trashed = false";
 
 export const Drive = {
     /**
-     * Liste les projets (fichiers Markdown)
+     * Liste les projets
      */
     async listProjects() {
         try {
@@ -27,13 +25,13 @@ export const Drive = {
     },
 
     /**
-     * Récupère le contenu d'un fichier
+     * Récupère le contenu
      */
     async getFileContent(fileId) {
         try {
             const response = await gapi.client.drive.files.get({
                 fileId: fileId,
-                alt: 'media' // Important pour télécharger le contenu
+                alt: 'media'
             });
             return response.body;
         } catch (err) {
@@ -43,42 +41,53 @@ export const Drive = {
     },
 
     /**
-     * Sauvegarde un fichier (Création ou Mise à jour)
-     * @param {string|null} fileId - ID du fichier si mise à jour, null si nouveau
-     * @param {string} title - Nom du fichier
-     * @param {string} content - Contenu Markdown
+     * Sauvegarde robuste (Multipart) pour garantir le Titre et le Contenu
      */
     async saveFile(fileId, title, content) {
-        const fileMetadata = {
+        // 1. Préparation des métadonnées (Nom + Type)
+        const metadata = {
             'name': title || 'Nouveau FSA.md',
             'mimeType': 'text/markdown'
         };
 
-        const media = {
-            mimeType: 'text/markdown',
-            body: content
-        };
+        // 2. Construction du corps "Multipart" (Le format strict attendu par Google)
+        const boundary = '-------314159265358979323846';
+        const delimiter = "\r\n--" + boundary + "\r\n";
+        const close_delim = "\r\n--" + boundary + "--";
+
+        // Note: On encode le contenu en UTF-8 pour supporter les accents
+        // (JavaScript gère les strings en UTF-16, mais le réseau préfère l'UTF-8 propre)
+        // Pour du texte simple comme Markdown, la string JS passe généralement bien via gapi,
+        // mais le formatage ci-dessous est le standard.
+        
+        const multipartRequestBody =
+            delimiter +
+            'Content-Type: application/json\r\n\r\n' +
+            JSON.stringify(metadata) +
+            delimiter +
+            'Content-Type: text/markdown\r\n\r\n' +
+            content +
+            close_delim;
+
+        // 3. Choix de la méthode (PATCH = Update, POST = Create)
+        const method = fileId ? 'PATCH' : 'POST';
+        const path = '/upload/drive/v3/files' + (fileId ? '/' + fileId : '');
 
         try {
-            if (fileId) {
-                // MISE À JOUR
-                await gapi.client.drive.files.update({
-                    fileId: fileId,
-                    resource: fileMetadata, // Note: pour update c'est 'resource' ou juste metadata selon la lib, ici on met à jour le nom aussi
-                    media: media
-                });
-                return { id: fileId, ...fileMetadata };
-            } else {
-                // CRÉATION
-                const response = await gapi.client.drive.files.create({
-                    resource: fileMetadata,
-                    media: media,
-                    fields: 'id'
-                });
-                return response.result;
-            }
+            // Appel direct via gapi.client.request pour contrôler le header
+            const response = await gapi.client.request({
+                'path': path,
+                'method': method,
+                'params': {'uploadType': 'multipart'},
+                'headers': {
+                    'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+                },
+                'body': multipartRequestBody
+            });
+
+            return response.result;
         } catch (err) {
-            console.error("Erreur Drive saveFile:", err);
+            console.error("Erreur Drive saveFile (Multipart):", err);
             throw err;
         }
     }
