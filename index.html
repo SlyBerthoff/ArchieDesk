@@ -28,34 +28,34 @@
         </div>
         
         <div class="flex items-center gap-4">
-            <button id="btn-config" class="text-slate-400 hover:text-slate-600 transition" title="Configuration API">
-                <i class="fa-solid fa-gear"></i>
+            <button id="btn-config" class="text-slate-500 hover:text-indigo-600 transition flex items-center gap-2 px-3 py-1 rounded hover:bg-slate-100" title="Réglages">
+                <i class="fa-solid fa-sliders"></i> <span class="hidden md:inline text-sm font-medium">Réglages</span>
             </button>
+            
             <button id="btn-new-project" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2">
                 <i class="fa-solid fa-plus"></i> Nouveau FSA
             </button>
-            <div id="auth-container">
-                <button id="btn-login" class="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium transition">
-                    <i class="fa-brands fa-google mr-2"></i> Connexion Drive
-                </button>
-                <button id="btn-logout" class="hidden text-red-500 hover:text-red-700 text-sm font-medium">Déconnexion</button>
-            </div>
         </div>
     </nav>
 
     <main class="flex-1 relative overflow-hidden">
         <section id="view-dashboard" class="h-full w-full p-8 overflow-y-auto">
             <div class="max-w-7xl mx-auto">
-                <header class="mb-8">
-                    <h2 class="text-2xl font-bold text-slate-800">Mes Projets (FSA)</h2>
+                <header class="mb-8 flex justify-between items-end">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Mes Projets (FSA)</h2>
+                        <p id="folder-indicator" class="text-xs text-slate-400 mt-1">Dossier: Racine</p>
+                    </div>
                 </header>
+                
                 <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+                
                 <div id="empty-state" class="hidden text-center py-20">
                     <div class="bg-slate-100 rounded-full h-16 w-16 flex items-center justify-center mx-auto mb-4">
-                        <i class="fa-regular fa-folder-open text-slate-400 text-2xl"></i>
+                        <i class="fa-brands fa-google-drive text-slate-400 text-3xl"></i>
                     </div>
-                    <h3 class="text-slate-900 font-medium">Aucun projet trouvé</h3>
-                    <p class="text-slate-500 text-sm mt-1">Connectez-vous ou vérifiez votre configuration.</p>
+                    <h3 class="text-slate-900 font-medium">Non connecté</h3>
+                    <p class="text-slate-500 text-sm mt-1">Ouvrez les réglages pour connecter votre Drive.</p>
                 </div>
             </div>
         </section>
@@ -83,47 +83,70 @@
     </main>
 
     <div id="config-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
-        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="bg-indigo-100 p-2 rounded-lg text-indigo-600">
-                    <i class="fa-solid fa-key text-xl"></i>
-                </div>
-                <h3 class="text-xl font-bold text-slate-900">Configuration API</h3>
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+            <div class="bg-slate-50 p-6 border-b border-slate-100 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-slate-900">Réglages</h3>
+                <button id="btn-close-config" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
             </div>
             
-            <p class="text-sm text-slate-500 mb-6">
-                Pour fonctionner, ArchieDesk a besoin de vos identifiants Google Cloud. Ils seront stockés localement.
-            </p>
-
-            <form id="config-form" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">API Key</label>
-                    <input type="text" id="input-api-key" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Client ID</label>
-                    <input type="text" id="input-client-id" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
-                </div>
+            <div class="p-6 space-y-6">
                 
-                <div class="pt-2 pb-2">
-                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dossier de stockage</label>
-                    <div class="flex gap-2">
-                        <input type="text" id="input-folder-name" class="w-full border border-slate-300 bg-slate-100 rounded-lg p-2 text-sm text-slate-500" placeholder="Racine (Mon Drive)" readonly>
-                        <input type="hidden" id="input-folder-id" value="">
-                        <button type="button" id="btn-browse-folder" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 rounded-lg transition" title="Parcourir">
-                            <i class="fa-regular fa-folder-open"></i>
+                <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
+                    <h4 class="text-xs font-bold text-indigo-800 uppercase mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-user-shield"></i> Compte Google
+                    </h4>
+                    
+                    <div id="auth-section-logged-out" class="">
+                        <p class="text-xs text-indigo-600 mb-3">Connectez-vous pour activer la sauvegarde.</p>
+                        <button id="btn-login-modal" class="w-full bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white transition font-medium py-2 rounded shadow-sm flex justify-center items-center gap-2">
+                            <i class="fa-brands fa-google"></i> Connexion Drive
                         </button>
                     </div>
-                    <p class="text-xs text-slate-400 mt-1">Laissez vide pour la racine.</p>
+
+                    <div id="auth-section-logged-in" class="hidden">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-indigo-900 font-medium flex items-center gap-2">
+                                <i class="fa-solid fa-circle-check text-green-500"></i> Connecté
+                            </span>
+                            <button id="btn-logout-modal" class="text-xs text-red-500 hover:text-red-700 font-medium underline">
+                                Déconnexion
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="pt-4 flex justify-end gap-3">
-                     <button type="button" id="btn-cancel-config" class="text-slate-500 hover:text-slate-800 text-sm font-medium px-4 py-2 hidden">Annuler</button>
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-lg text-sm font-medium transition w-full">
-                        Sauvegarder & Démarrer
-                    </button>
-                </div>
-            </form>
+                <form id="config-form" class="space-y-4 pt-2 border-t border-slate-100">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">API Key</label>
+                        <input type="text" id="input-api-key" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Client ID</label>
+                        <input type="text" id="input-client-id" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dossier FSA</label>
+                        <div class="flex gap-2 relative">
+                            <input type="text" id="input-folder-name" class="w-full border border-slate-300 bg-slate-100 rounded-lg p-2 text-sm text-slate-500" placeholder="Racine (Mon Drive)" readonly>
+                            <input type="hidden" id="input-folder-id" value="">
+                            
+                            <button type="button" id="btn-browse-folder" disabled class="bg-slate-200 text-slate-400 cursor-not-allowed px-3 rounded-lg transition" title="Connectez-vous pour choisir un dossier">
+                                <i class="fa-regular fa-folder-open"></i>
+                            </button>
+                        </div>
+                        <p id="folder-help-text" class="text-xs text-slate-400 mt-1">Connexion requise pour changer de dossier.</p>
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-6 py-3 rounded-lg text-sm font-medium transition w-full shadow-lg">
+                            Enregistrer les paramètres
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -136,9 +159,7 @@
                 </div>
                 <button id="btn-picker-close" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
             </div>
-            
             <div id="picker-list" class="flex-1 overflow-y-auto min-h-[300px]"></div>
-
             <div class="p-4 border-t border-slate-200 flex justify-end gap-3 bg-white rounded-b-xl">
                 <button id="btn-picker-select" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition w-full md:w-auto">
                     <i class="fa-solid fa-check mr-2"></i> Choisir ce dossier
