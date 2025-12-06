@@ -1,12 +1,11 @@
 /**
  * js/editor.js
- * Gestion Éditeur - Parsing YAML Robustifié (v1.4)
+ * Gestion Éditeur - Parsing YAML Flexible (v1.5)
  */
 
 let input = null;
 let preview = null;
 
-// Regex stricte pour le bloc YAML en début de fichier
 const YAML_REGEX = /^---\n([\s\S]*?)\n---/;
 
 const configureMarked = () => {
@@ -39,7 +38,7 @@ export const Editor = {
     },
 
     /**
-     * Extrait les métadonnées du YAML (Version Tolérante)
+     * Extrait les métadonnées (Version Tolérante aux espaces)
      */
     getMetadata() {
         const content = input.value;
@@ -53,22 +52,19 @@ export const Editor = {
         if (match && match[1]) {
             const yamlBlock = match[1];
             
-            // Regex améliorées : \s* au début accepte les indentations
-            const idMatch = yamlBlock.match(/^\s*id:\s*(.+)$/m);
+            // Regex améliorées : \s* autour du : permet "key : value" ou "key:value"
+            const idMatch = yamlBlock.match(/^\s*id\s*:\s*(.+)$/m);
             if (idMatch) props.id = idMatch[1].trim();
 
-            const titleMatch = yamlBlock.match(/^\s*titre_court:\s*(.+)$/m);
+            const titleMatch = yamlBlock.match(/^\s*titre_court\s*:\s*(.+)$/m);
             if (titleMatch) props.titre_court = titleMatch[1].trim();
 
-            const statusMatch = yamlBlock.match(/^\s*statut:\s*(.+)$/m);
+            const statusMatch = yamlBlock.match(/^\s*statut\s*:\s*(.+)$/m);
             if (statusMatch) props.statut = statusMatch[1].trim().toUpperCase();
         }
         return props;
     },
 
-    /**
-     * Bascule le statut OBSOLETE / ACTIF
-     */
     toggleObsolete() {
         let content = input.value;
         const match = content.match(YAML_REGEX);
@@ -77,11 +73,12 @@ export const Editor = {
             let yamlBlock = match[1];
             let newYamlBlock = yamlBlock;
             
-            if (/^\s*statut:/m.test(yamlBlock)) {
-                if (/^\s*statut:\s*OBSOLETE/mi.test(yamlBlock)) {
-                    newYamlBlock = yamlBlock.replace(/^\s*statut:.*$/mi, "statut: EN COURS");
+            // Regex flexible ici aussi
+            if (/^\s*statut\s*:/m.test(yamlBlock)) {
+                if (/^\s*statut\s*:\s*OBSOLETE/mi.test(yamlBlock)) {
+                    newYamlBlock = yamlBlock.replace(/^\s*statut\s*:.*$/mi, "statut: EN COURS");
                 } else {
-                    newYamlBlock = yamlBlock.replace(/^\s*statut:.*$/mi, "statut: OBSOLETE");
+                    newYamlBlock = yamlBlock.replace(/^\s*statut\s*:.*$/mi, "statut: OBSOLETE");
                 }
             } else {
                 newYamlBlock = yamlBlock.trim() + "\nstatut: OBSOLETE\n";

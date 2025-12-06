@@ -1,6 +1,6 @@
 /**
  * js/app.js
- * ... (Début du fichier identique) ...
+ * Point d'entrée v1.5 - Fix Card Layout
  */
 import { Config } from './config.js';
 import { Auth } from './auth.js';
@@ -69,12 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- LOGIC ---
-    if(btnConfigTrigger) {
-        btnConfigTrigger.addEventListener('click', () => {
-            Config.updateAuthStatus(Auth.isReady()); 
-            Config.showModal();
-        });
-    }
+    if(btnConfigTrigger) btnConfigTrigger.addEventListener('click', () => {
+        Config.updateAuthStatus(Auth.isReady()); 
+        Config.showModal();
+    });
 
     btnNewProject.addEventListener('click', () => {
         currentFileId = null;
@@ -98,12 +96,10 @@ tags: []
         if (Auth.isReady()) refreshProjects();
     });
 
-    if(btnArchive) {
-        btnArchive.addEventListener('click', () => {
-            const isObsolete = Editor.toggleObsolete();
-            updateArchiveButton(isObsolete);
-        });
-    }
+    if(btnArchive) btnArchive.addEventListener('click', () => {
+        const isObsolete = Editor.toggleObsolete();
+        updateArchiveButton(isObsolete);
+    });
 
     btnSave.addEventListener('click', async () => {
         const content = Editor.getContent();
@@ -118,6 +114,7 @@ tags: []
             const conf = Config.get();
             const targetFolder = conf ? conf.folderId : null;
             
+            // On sauvegarde : Drive reçoit 'properties' (titre_court, id, statut)
             const result = await Drive.saveFile(currentFileId, fileName, content, targetFolder, meta);
             
             if (!currentFileId && result.id) currentFileId = result.id;
@@ -172,11 +169,12 @@ function renderProjects(files) {
         // Lecture propriétés
         const props = file.properties || {};
         
-        // 1. ID : Priorité à la propriété 'id' du YAML, sinon fallback sur le nom du fichier (sans .md)
-        const yamlId = props.id || file.name.replace('.md', '');
+        // Données d'affichage
+        // 1. ID : On le prend du YAML, sinon du nom de fichier sans extension
+        const yamlId = props.id || file.name.replace(/\.md$/i, '');
         
-        // 2. Titre : Propriété 'titre_court'
-        const shortTitle = props.titre_court || null;
+        // 2. TITRE : On prend titre_court, sinon le nom de fichier (pour avoir quelque chose de lisible)
+        const displayTitle = props.titre_court || file.name.replace(/\.md$/i, '');
         
         const isObsolete = props.statut === 'OBSOLETE';
         const date = file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString('fr-FR') : '';
@@ -185,34 +183,14 @@ function renderProjects(files) {
         const opacityClass = isObsolete ? 'opacity-60 grayscale hover:grayscale-0' : '';
         const borderClass = isObsolete ? 'border-slate-100' : 'border-slate-200 hover:border-indigo-300';
         
-        // --- NOUVELLE LOGIQUE D'AFFICHAGE ---
-        let cardContent = '';
-        
-        if (shortTitle) {
-            // SCÉNARIO A : On a tout (Titre + ID)
-            // Ligne 1 (Petit) : ID
-            // Ligne 2 (Grand) : Titre Court
-            cardContent = `
-                <div class="font-mono text-xs text-slate-400 mb-1 truncate select-all" title="ID: ${yamlId}">${yamlId}</div>
-                <h3 class="font-bold text-lg text-slate-800 group-hover:text-indigo-600 line-clamp-2 leading-tight">${shortTitle}</h3>
-            `;
-        } else {
-            // SCÉNARIO B : Titre manquant (ex: vieux fichier ou erreur save)
-            // Ligne 1 (Petit) : ID (répété pour structure) ou Nom Fichier
-            // Ligne 2 (Grand) : On affiche le Nom de Fichier (ou l'ID) en gros pour que ce soit lisible
-            // PLUS DE TEXTE "Titre manquant" !
-            cardContent = `
-                <div class="font-mono text-xs text-slate-400 mb-1 truncate">ID: ${yamlId}</div>
-                <h3 class="font-bold font-mono text-lg text-slate-800 group-hover:text-indigo-600 truncate" title="${file.name}">${file.name}</h3>
-            `;
-        }
-
         const badgeHtml = isObsolete 
             ? `<span class="bg-slate-100 text-slate-500 text-xs font-bold px-2 py-1 rounded uppercase">ARCHIVÉ</span>`
             : `<span class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded uppercase">FSA</span>`;
 
         const card = document.createElement('div');
         card.className = `bg-white p-5 rounded-xl shadow-sm cursor-pointer transition group flex flex-col h-48 ${borderClass} ${opacityClass}`;
+        
+        // HTML Card : Toujours ID en petit, Titre en grand
         card.innerHTML = `
             <div class="flex justify-between items-start mb-3">
                 ${badgeHtml}
@@ -220,7 +198,10 @@ function renderProjects(files) {
             </div>
             
             <div class="mb-2">
-                ${cardContent}
+                <div class="font-mono text-xs text-slate-400 mb-1 truncate select-all" title="ID: ${yamlId}">ID: ${yamlId}</div>
+                <h3 class="font-bold text-lg text-slate-800 group-hover:text-indigo-600 line-clamp-2 leading-tight" title="${displayTitle}">
+                    ${displayTitle}
+                </h3>
             </div>
             
             <div class="flex-1"></div>
@@ -236,10 +217,8 @@ function renderProjects(files) {
                 const content = await Drive.getFileContent(file.id);
                 currentFileId = file.id;
                 Editor.setContent(content);
-                
                 const meta = Editor.getMetadata();
                 updateArchiveButton(meta.statut === 'OBSOLETE');
-
                 showEditor(true);
             } catch(e) { alert("Erreur ouverture"); }
             finally { card.style.opacity = isObsolete ? '0.6' : '1'; }
