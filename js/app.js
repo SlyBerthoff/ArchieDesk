@@ -1,17 +1,15 @@
 /**
  * js/app.js
- * Point d'entrée v1.2 (Gestion Archive + ID Card)
+ * Point d'entrée v1.3 - Fix Dashboard Display
  */
 import { Config } from './config.js';
 import { Auth } from './auth.js';
 import { Drive } from './drive.js';
 import { Editor } from './editor.js';
 
-// --- DOM ELEMENTS ---
 let btnConfigTrigger, btnNewProject, btnCloseEditor, btnSave, btnArchive;
 let viewDashboard, viewEditor, emptyState, projectsGrid, folderIndicator;
 let lblArchive;
-
 let currentFileId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -20,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnNewProject = document.getElementById('btn-new-project');
     btnCloseEditor = document.getElementById('btn-close-editor');
     btnSave = document.getElementById('btn-save');
-    btnArchive = document.getElementById('btn-archive'); // Maintenant présent dans le HTML
+    btnArchive = document.getElementById('btn-archive'); 
     lblArchive = document.getElementById('lbl-archive');
     
     viewDashboard = document.getElementById('view-dashboard');
@@ -32,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Init Modules
     Editor.init();
 
-    // 3. CONFIGURATION & AUTH WIRING
+    // 3. CONFIG & AUTH
     Config.initUI({
         onSave: () => {
             const conf = Config.get();
@@ -70,8 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NAVIGATION & LOGIC ---
-
+    // --- LOGIC ---
     if(btnConfigTrigger) {
         btnConfigTrigger.addEventListener('click', () => {
             Config.updateAuthStatus(Auth.isReady()); 
@@ -81,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnNewProject.addEventListener('click', () => {
         currentFileId = null;
-        // Template YAML par défaut pour guider le Gem ou l'utilisateur
         const template = 
 `---
 id: NOUVEAU-PROJET-001
@@ -102,7 +98,6 @@ tags: []
         if (Auth.isReady()) refreshProjects();
     });
 
-    // BOUTON ARCHIVER
     if(btnArchive) {
         btnArchive.addEventListener('click', () => {
             const isObsolete = Editor.toggleObsolete();
@@ -110,10 +105,8 @@ tags: []
         });
     }
 
-    // BOUTON SAUVEGARDER
     btnSave.addEventListener('click', async () => {
         const content = Editor.getContent();
-        // Le nom de fichier est maintenant déterminé par le champ ID du YAML
         const fileName = Editor.extractFileName(); 
         const meta = Editor.getMetadata();
         
@@ -125,7 +118,7 @@ tags: []
             const conf = Config.get();
             const targetFolder = conf ? conf.folderId : null;
             
-            // On sauvegarde le contenu ET les propriétés (pour l'affichage Dashboard sans lire le fichier)
+            // Sauvegarde + Injection métadonnées Drive
             const result = await Drive.saveFile(currentFileId, fileName, content, targetFolder, meta);
             
             if (!currentFileId && result.id) currentFileId = result.id;
@@ -139,8 +132,6 @@ tags: []
         }
     });
 });
-
-// --- HELPERS ---
 
 function updateArchiveButton(isObsolete) {
     if(!lblArchive || !btnArchive) return;
@@ -179,9 +170,13 @@ function renderProjects(files) {
     }
     
     files.forEach(file => {
-        // Lecture des propriétés (si sauvegardées via l'app)
+        // Lecture propriétés
         const props = file.properties || {};
-        const yamlId = props.id || file.name.replace('.md', ''); // Fallback sur le nom de fichier
+        
+        // ID: Soit depuis les props, soit le nom de fichier sans extension
+        const yamlId = props.id || file.name.replace('.md', '');
+        
+        // Titre: Soit le titre court, soit vide
         const shortTitle = props.titre_court || null;
         const isObsolete = props.statut === 'OBSOLETE';
         
@@ -191,19 +186,21 @@ function renderProjects(files) {
         const opacityClass = isObsolete ? 'opacity-60 grayscale hover:grayscale-0' : '';
         const borderClass = isObsolete ? 'border-slate-100' : 'border-slate-200 hover:border-indigo-300';
         
-        // Logique d'affichage Card : ID en évidence
-        // L'utilisateur veut l'ID sur la card.
+        // --- LOGIQUE D'AFFICHAGE TITRE CORRIGÉE ---
         let cardContent = '';
         
         if (shortTitle) {
-            // Si on a un titre court, on affiche ID (Technique) + Titre (Humain)
+            // Cas idéal : On a le titre court
+            // ID en petit (haut), Titre en Grand (bas)
             cardContent = `
-                <div class="font-mono text-xs text-slate-400 mb-1 truncate" title="ID: ${yamlId}">${yamlId}</div>
-                <h3 class="font-bold text-lg text-slate-800 group-hover:text-indigo-600 line-clamp-2">${shortTitle}</h3>
+                <div class="font-mono text-xs text-slate-400 mb-1 truncate select-all" title="ID: ${yamlId}">${yamlId}</div>
+                <h3 class="font-bold text-lg text-slate-800 group-hover:text-indigo-600 line-clamp-2 leading-tight">${shortTitle}</h3>
             `;
         } else {
-            // Sinon juste l'ID comme titre
+            // Cas sans titre court (Fichier non resauvegardé)
+            // On affiche l'ID en grand pour qu'il soit lisible
             cardContent = `
+                <div class="font-mono text-xs text-slate-300 mb-1">ID (Titre manquant)</div>
                 <h3 class="font-bold font-mono text-lg text-slate-800 group-hover:text-indigo-600 truncate">${yamlId}</h3>
             `;
         }
@@ -227,7 +224,7 @@ function renderProjects(files) {
             <div class="flex-1"></div>
             <div class="mt-2 text-xs text-slate-400 pt-3 border-t border-slate-50 flex justify-between">
                 <span>${date}</span>
-                ${props.statut ? `<span class="uppercase text-[10px] tracking-wider">${props.statut}</span>` : ''}
+                ${props.statut ? `<span class="uppercase text-[10px] tracking-wider font-bold text-slate-300">${props.statut}</span>` : ''}
             </div>
         `;
         

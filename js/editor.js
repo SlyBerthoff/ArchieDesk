@@ -1,6 +1,7 @@
 /**
  * js/editor.js
  * Gestion Éditeur, Parsing YAML & Rendu "Human Friendly"
+ * v1.3 - Fix YAML Overwrite
  */
 
 let input = null;
@@ -53,7 +54,7 @@ export const Editor = {
         if (match && match[1]) {
             const yamlBlock = match[1];
             
-            // Extraction des champs clés
+            // Extraction souple (tolère les espaces)
             const idMatch = yamlBlock.match(/^id:\s*(.+)$/m);
             if (idMatch) props.id = idMatch[1].trim();
 
@@ -67,30 +68,40 @@ export const Editor = {
     },
 
     /**
-     * Bascule le statut OBSOLETE / ACTIF dans le YAML
+     * Bascule le statut OBSOLETE / ACTIF de manière chirurgicale
      */
     toggleObsolete() {
         let content = input.value;
-        let match = content.match(YAML_REGEX);
-        
-        let newYaml = "";
+        const match = content.match(YAML_REGEX);
         
         if (match) {
-            let yamlContent = match[1];
-            // On bascule la valeur
-            if (yamlContent.match(/statut:\s*OBSOLETE/i)) {
-                yamlContent = yamlContent.replace(/statut:\s*OBSOLETE/i, "statut: EN COURS");
-            } else if (yamlContent.match(/statut:\s*.+/)) {
-                yamlContent = yamlContent.replace(/statut:\s*.+/i, "statut: OBSOLETE");
+            // Le bloc YAML existe
+            let yamlBlock = match[1];
+            let newYamlBlock = yamlBlock;
+            
+            // On vérifie si la ligne statut existe déjà
+            if (/^statut:/m.test(yamlBlock)) {
+                // Elle existe, on la remplace via Regex ligne par ligne
+                // On détecte la valeur actuelle pour basculer
+                if (/^statut:\s*OBSOLETE/mi.test(yamlBlock)) {
+                    newYamlBlock = yamlBlock.replace(/^statut:.*$/mi, "statut: EN COURS");
+                } else {
+                    newYamlBlock = yamlBlock.replace(/^statut:.*$/mi, "statut: OBSOLETE");
+                }
             } else {
-                yamlContent += "\nstatut: OBSOLETE";
+                // Elle n'existe pas, on l'ajoute à la fin du bloc
+                // On s'assure qu'il y a un retour à la ligne avant
+                newYamlBlock = yamlBlock.trim() + "\nstatut: OBSOLETE\n";
             }
-            newYaml = `---\n${yamlContent.trim()}\n---`;
-            content = content.replace(YAML_REGEX, newYaml);
+
+            // On remplace uniquement le bloc YAML dans le contenu total
+            const fullYaml = `---\n${newYamlBlock}\n---`;
+            content = content.replace(YAML_REGEX, fullYaml);
+
         } else {
-            // Création si absent
-            newYaml = `---\nid: NOUVEAU-FSA\nstatut: OBSOLETE\n---`;
-            content = newYaml + "\n\n" + content;
+            // Pas de bloc YAML, on le crée proprement au début
+            const newHeader = `---\nid: NOUVEAU-FSA\nstatut: OBSOLETE\n---\n\n`;
+            content = newHeader + content;
         }
 
         input.value = content;
@@ -100,43 +111,38 @@ export const Editor = {
         return meta.statut === 'OBSOLETE';
     },
 
-    /**
-     * Génère le nom du fichier basé sur l'ID
-     */
     extractFileName() {
         const meta = this.getMetadata();
         if (meta.id) {
-            // Nettoyage de l'ID pour en faire un nom de fichier sûr
             const safeId = meta.id.replace(/[^a-zA-Z0-9_\-]/g, '');
             return safeId + ".md";
         }
         return "FSA_Sans_ID.md";
     },
 
-    /**
-     * Rendu Visuel : Markdown + Encart Métadonnées Joli
-     */
     render(markdownText) {
         if (!preview) return;
         
         const meta = this.getMetadata();
         const contentWithoutYaml = markdownText.replace(YAML_REGEX, '');
         
-        // Construction de l'encart "Fiche d'identité"
+        // Rendu en-tête visuel
         let headerHtml = '';
         if (meta.id || meta.titre_court) {
-            const badgeColor = meta.statut === 'OBSOLETE' ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700';
+            const isObsolete = (meta.statut === 'OBSOLETE');
+            const badgeColor = isObsolete ? 'bg-slate-200 text-slate-500' : 'bg-green-100 text-green-700';
+            const statusText = meta.statut || 'N/A';
             
             headerHtml = `
                 <div class="mb-8 p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm">
                     <div class="flex justify-between items-start mb-2">
                         <span class="font-mono text-xs text-slate-400 uppercase tracking-widest">Fiche Signalétique</span>
-                        <span class="${badgeColor} text-xs font-bold px-2 py-1 rounded">${meta.statut || 'N/A'}</span>
+                        <span class="${badgeColor} text-xs font-bold px-2 py-1 rounded">${statusText}</span>
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <span class="block text-xs text-slate-400">ID Unique</span>
-                            <span class="font-mono font-bold text-slate-700">${meta.id || '-'}</span>
+                            <span class="font-mono font-bold text-slate-700 select-all">${meta.id || '-'}</span>
                         </div>
                         <div>
                             <span class="block text-xs text-slate-400">Projet</span>
