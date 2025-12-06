@@ -1,7 +1,6 @@
 /**
  * js/editor.js
- * Gestion Éditeur, Parsing YAML & Rendu "Human Friendly"
- * v1.3 - Fix YAML Overwrite
+ * Gestion Éditeur - Parsing YAML Robustifié (v1.4)
  */
 
 let input = null;
@@ -40,7 +39,7 @@ export const Editor = {
     },
 
     /**
-     * Extrait les métadonnées du YAML
+     * Extrait les métadonnées du YAML (Version Tolérante)
      */
     getMetadata() {
         const content = input.value;
@@ -54,61 +53,49 @@ export const Editor = {
         if (match && match[1]) {
             const yamlBlock = match[1];
             
-            // Extraction souple (tolère les espaces)
-            const idMatch = yamlBlock.match(/^id:\s*(.+)$/m);
+            // Regex améliorées : \s* au début accepte les indentations
+            const idMatch = yamlBlock.match(/^\s*id:\s*(.+)$/m);
             if (idMatch) props.id = idMatch[1].trim();
 
-            const titleMatch = yamlBlock.match(/^titre_court:\s*(.+)$/m);
+            const titleMatch = yamlBlock.match(/^\s*titre_court:\s*(.+)$/m);
             if (titleMatch) props.titre_court = titleMatch[1].trim();
 
-            const statusMatch = yamlBlock.match(/^statut:\s*(.+)$/m);
+            const statusMatch = yamlBlock.match(/^\s*statut:\s*(.+)$/m);
             if (statusMatch) props.statut = statusMatch[1].trim().toUpperCase();
         }
         return props;
     },
 
     /**
-     * Bascule le statut OBSOLETE / ACTIF de manière chirurgicale
+     * Bascule le statut OBSOLETE / ACTIF
      */
     toggleObsolete() {
         let content = input.value;
         const match = content.match(YAML_REGEX);
         
         if (match) {
-            // Le bloc YAML existe
             let yamlBlock = match[1];
             let newYamlBlock = yamlBlock;
             
-            // On vérifie si la ligne statut existe déjà
-            if (/^statut:/m.test(yamlBlock)) {
-                // Elle existe, on la remplace via Regex ligne par ligne
-                // On détecte la valeur actuelle pour basculer
-                if (/^statut:\s*OBSOLETE/mi.test(yamlBlock)) {
-                    newYamlBlock = yamlBlock.replace(/^statut:.*$/mi, "statut: EN COURS");
+            if (/^\s*statut:/m.test(yamlBlock)) {
+                if (/^\s*statut:\s*OBSOLETE/mi.test(yamlBlock)) {
+                    newYamlBlock = yamlBlock.replace(/^\s*statut:.*$/mi, "statut: EN COURS");
                 } else {
-                    newYamlBlock = yamlBlock.replace(/^statut:.*$/mi, "statut: OBSOLETE");
+                    newYamlBlock = yamlBlock.replace(/^\s*statut:.*$/mi, "statut: OBSOLETE");
                 }
             } else {
-                // Elle n'existe pas, on l'ajoute à la fin du bloc
-                // On s'assure qu'il y a un retour à la ligne avant
                 newYamlBlock = yamlBlock.trim() + "\nstatut: OBSOLETE\n";
             }
-
-            // On remplace uniquement le bloc YAML dans le contenu total
             const fullYaml = `---\n${newYamlBlock}\n---`;
             content = content.replace(YAML_REGEX, fullYaml);
-
         } else {
-            // Pas de bloc YAML, on le crée proprement au début
             const newHeader = `---\nid: NOUVEAU-FSA\nstatut: OBSOLETE\n---\n\n`;
             content = newHeader + content;
         }
 
         input.value = content;
         this.render(content);
-        
-        const meta = this.getMetadata();
-        return meta.statut === 'OBSOLETE';
+        return this.getMetadata().statut === 'OBSOLETE';
     },
 
     extractFileName() {

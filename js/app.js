@@ -1,6 +1,6 @@
 /**
  * js/app.js
- * Point d'entrée v1.3 - Fix Dashboard Display
+ * ... (Début du fichier identique) ...
  */
 import { Config } from './config.js';
 import { Auth } from './auth.js';
@@ -118,7 +118,6 @@ tags: []
             const conf = Config.get();
             const targetFolder = conf ? conf.folderId : null;
             
-            // Sauvegarde + Injection métadonnées Drive
             const result = await Drive.saveFile(currentFileId, fileName, content, targetFolder, meta);
             
             if (!currentFileId && result.id) currentFileId = result.id;
@@ -173,35 +172,38 @@ function renderProjects(files) {
         // Lecture propriétés
         const props = file.properties || {};
         
-        // ID: Soit depuis les props, soit le nom de fichier sans extension
+        // 1. ID : Priorité à la propriété 'id' du YAML, sinon fallback sur le nom du fichier (sans .md)
         const yamlId = props.id || file.name.replace('.md', '');
         
-        // Titre: Soit le titre court, soit vide
+        // 2. Titre : Propriété 'titre_court'
         const shortTitle = props.titre_court || null;
-        const isObsolete = props.statut === 'OBSOLETE';
         
+        const isObsolete = props.statut === 'OBSOLETE';
         const date = file.modifiedTime ? new Date(file.modifiedTime).toLocaleDateString('fr-FR') : '';
 
         // Styles
         const opacityClass = isObsolete ? 'opacity-60 grayscale hover:grayscale-0' : '';
         const borderClass = isObsolete ? 'border-slate-100' : 'border-slate-200 hover:border-indigo-300';
         
-        // --- LOGIQUE D'AFFICHAGE TITRE CORRIGÉE ---
+        // --- NOUVELLE LOGIQUE D'AFFICHAGE ---
         let cardContent = '';
         
         if (shortTitle) {
-            // Cas idéal : On a le titre court
-            // ID en petit (haut), Titre en Grand (bas)
+            // SCÉNARIO A : On a tout (Titre + ID)
+            // Ligne 1 (Petit) : ID
+            // Ligne 2 (Grand) : Titre Court
             cardContent = `
                 <div class="font-mono text-xs text-slate-400 mb-1 truncate select-all" title="ID: ${yamlId}">${yamlId}</div>
                 <h3 class="font-bold text-lg text-slate-800 group-hover:text-indigo-600 line-clamp-2 leading-tight">${shortTitle}</h3>
             `;
         } else {
-            // Cas sans titre court (Fichier non resauvegardé)
-            // On affiche l'ID en grand pour qu'il soit lisible
+            // SCÉNARIO B : Titre manquant (ex: vieux fichier ou erreur save)
+            // Ligne 1 (Petit) : ID (répété pour structure) ou Nom Fichier
+            // Ligne 2 (Grand) : On affiche le Nom de Fichier (ou l'ID) en gros pour que ce soit lisible
+            // PLUS DE TEXTE "Titre manquant" !
             cardContent = `
-                <div class="font-mono text-xs text-slate-300 mb-1">ID (Titre manquant)</div>
-                <h3 class="font-bold font-mono text-lg text-slate-800 group-hover:text-indigo-600 truncate">${yamlId}</h3>
+                <div class="font-mono text-xs text-slate-400 mb-1 truncate">ID: ${yamlId}</div>
+                <h3 class="font-bold font-mono text-lg text-slate-800 group-hover:text-indigo-600 truncate" title="${file.name}">${file.name}</h3>
             `;
         }
 
@@ -235,7 +237,6 @@ function renderProjects(files) {
                 currentFileId = file.id;
                 Editor.setContent(content);
                 
-                // Update bouton Archive state
                 const meta = Editor.getMetadata();
                 updateArchiveButton(meta.statut === 'OBSOLETE');
 
