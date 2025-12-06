@@ -1,6 +1,6 @@
 /**
  * js/app.js
- * Point d'entrée principal (Version UI Unifiée)
+ * Point d'entrée principal (Version Persistante)
  */
 import { Config } from './config.js';
 import { Auth } from './auth.js';
@@ -33,27 +33,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. CONFIGURATION & AUTH WIRING
     Config.initUI({
         onSave: () => {
-            console.log("Config sauvegardée.");
             const conf = Config.get();
             if(folderIndicator) folderIndicator.textContent = "Dossier: " + (conf.folderName || "Racine");
             refreshProjects(); 
         },
         onLogin: () => {
             Auth.signIn(() => {
-                Config.updateAuthStatus(true); // Déverrouille le bouton Parcourir
+                Config.updateAuthStatus(true);
                 updateAppUI(true);
                 refreshProjects();
             });
         },
         onLogout: () => {
             Auth.signOut(() => {
-                Config.updateAuthStatus(false); // Verrouille le bouton Parcourir
+                Config.updateAuthStatus(false);
                 updateAppUI(false);
             });
         }
     });
 
-// 4. DÉMARRAGE ET VÉRIFICATION SESSION
+    // 4. DÉMARRAGE ET VÉRIFICATION SESSION
     if (!Config.hasConfig()) {
         Config.showModal(true);
     } else {
@@ -79,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- NAVIGATION ---
     if(btnConfigTrigger) {
         btnConfigTrigger.addEventListener('click', () => {
-            // On s'assure que l'état de l'UI correspond à l'état réel de l'auth avant d'ouvrir
             Config.updateAuthStatus(Auth.isReady()); 
             Config.showModal();
         });
@@ -136,6 +134,11 @@ async function refreshProjects() {
         renderProjects(files);
     } catch (err) {
         console.error(err);
+        // Si erreur token expiré
+        if (err.status === 401) {
+             Auth.signOut();
+             updateAppUI(false);
+        }
         projectsGrid.innerHTML = '<p class="text-red-500 text-center col-span-full">Impossible de charger les projets.</p>';
     }
 }
