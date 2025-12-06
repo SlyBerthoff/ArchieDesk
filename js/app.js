@@ -53,17 +53,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 4. Check Start
+// 4. DÉMARRAGE ET VÉRIFICATION SESSION
     if (!Config.hasConfig()) {
-        Config.showModal(true); // Force l'ouverture
+        Config.showModal(true);
     } else {
-        // Au démarrage, on considère déconnecté jusqu'à preuve du contraire
-        // Cela force le bouton "Parcourir" à être grisé initialement.
+        // Par défaut verrouillé
         Config.updateAuthStatus(false);
 
         Auth.init((success) => {
-            // Si on avait une persistance de session (optionnel futur), on pourrait mettre true ici
-            // Pour l'instant, Auth.init prépare juste GAPI.
+            if (success) {
+                // VERIFICATION AUTOMATIQUE : A-t-on restauré une session ?
+                if (Auth.isReady()) {
+                    console.log("--> Session restaurée ! Démarrage auto.");
+                    Config.updateAuthStatus(true); // UI Réglages
+                    updateAppUI(true);             // UI App
+                    refreshProjects();             // Chargement Données
+                }
+            }
             
             const conf = Config.get();
             if(folderIndicator) folderIndicator.textContent = "Dossier: " + (conf.folderName || "Racine");
