@@ -64,11 +64,18 @@
             <div class="w-full md:w-1/2 flex flex-col border-r border-slate-200 bg-white">
                 <div class="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <span class="text-xs font-bold text-slate-500 uppercase">Éditeur Source</span>
-                    <button id="btn-save" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
-                        <i class="fa-regular fa-floppy-disk mr-1"></i> Enregistrer
-                    </button>
+                    
+                    <div class="flex items-center gap-2">
+                        <button id="btn-archive" class="text-slate-400 hover:text-orange-600 text-sm font-medium transition px-3 py-1 rounded hover:bg-orange-50" title="Basculer le statut Obsolète">
+                            <i class="fa-solid fa-box-archive mr-1"></i> <span id="lbl-archive">Archiver</span>
+                        </button>
+                        
+                        <button id="btn-save" class="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white text-sm font-medium transition px-4 py-1 rounded shadow-sm flex items-center gap-2">
+                            <i class="fa-regular fa-floppy-disk"></i> Enregistrer
+                        </button>
+                    </div>
                 </div>
-                <textarea id="markdown-input" class="flex-1 p-6 w-full resize-none focus:outline-none font-mono text-sm leading-relaxed" placeholder="Collez votre contenu Markdown ici..."></textarea>
+                <textarea id="markdown-input" class="flex-1 p-6 w-full resize-none focus:outline-none font-mono text-sm leading-relaxed" placeholder="Chargement..."></textarea>
             </div>
             <div class="w-full md:w-1/2 flex flex-col bg-slate-50">
                 <div class="p-3 border-b border-slate-200 flex justify-between items-center bg-white">
